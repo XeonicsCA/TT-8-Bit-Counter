@@ -28,7 +28,7 @@ module tt_um_example (
     count <= 8'h01;
 
   always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin count <= 8'h00;           // reset to 0
+    if (!rst_n) count <= 8'h00;                 // reset to 0
     else count <= count + 8'h01;                // increment count by 1 bit
   end
 
