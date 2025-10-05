@@ -12,7 +12,7 @@ async def count_to_50(dut):
     dut._log.info("Start")
 
     # clock + reset
-    cocotb.start_soon(Clock(dut.clk, CLK_US, units="us").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_US, unit="us").start())
     dut.rst_n.value = 0
     dut.ui_in.value = 0
     dut.uio_in.value = 0
