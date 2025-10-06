@@ -37,7 +37,7 @@ async def count_to_50(dut):
 @cocotb.test()
 async def load_turnaround(dut):
     """Optional: tests your RELEASE->CAPTURE load micro-sequence."""
-    cocotb.start_soon(Clock(dut.clk, CLK_US, units="us").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_US, unit="us").start())
     dut.rst_n.value = 0
     dut.ui_in.value = 0
     dut.uio_in.value = 0

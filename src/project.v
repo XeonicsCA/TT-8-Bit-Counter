@@ -32,7 +32,7 @@ module tt_um_example #(
   end
 
   wire en = DEFAULT_EN ? 1'b1 : ctrl_q[0];
-  wire load = ctrl_q[1];
+  wire load = ctrl_q[1] & ~ctrl_qq[1];        // rising-edge detection
   wire oe = DEFAULT_DRIVE ? 1'b1 : ctrl_q[2];
 
   // detect one cycle pulse of load
@@ -50,13 +50,9 @@ module tt_um_example #(
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) seq <= 2'd0;
     else if (load_pulse) seq <= 2'd1;
-    else if (seq != 0) seq <= (seq == 2'd2) ? 2'd0 : seq + 2'd1; // if in seq 2, bring back to seq 0. otherwise increment 1 to 2
+    else if (seq == 1) seq <= 2'd1;
+    else if (seq == 2) seq <= 2'd0;
   end
-
-  // tri-state control
-  // drive output only when in drive state and output is enabled
-  wire driving = (seq == 2'd0) & oe;
-  assign uio_oe = {8{driving}};
 
   // counter
   logic [7:0] count;
@@ -70,6 +66,10 @@ module tt_um_example #(
   // output
   assign uo_out = count;
   assign uio_out = count;
+  // tri-state control
+  // drive output only when in drive state and output is enabled
+  wire driving = (seq == 2'd0) & oe;
+  assign uio_oe = driving ? 8'hFF : 8'h00;
 
   // List all unused inputs to prevent warnings
   wire _unused = &{ena, ui_in[7:3], 1'b0};     // concat and takes bitwise & (last bit set to 0, so always 0)
