@@ -36,7 +36,7 @@ module tt_um_example #(
   wire oe_lvl = ctrl_q[2];
 
   wire en = DEFAULT_EN ? 1'b1 : en_lvl;
-  wire load_pulse = ctrl_q[1] & ~ctrl_qq[1];        // rising-edge detection
+  wire load_pulse = load_lvl & ~ctrl_qq[1];        // rising-edge detection
   wire oe = DEFAULT_DRIVE ? 1'b1 : oe_lvl;
 
   // 3 state FSM sequence, 0=DRIVE, 1=RELEASE, 2=CAPTURE, then back to 0
