@@ -27,22 +27,17 @@ module tt_um_example #(
     end
     else begin
       ctrl_q <= ui_in[2:0];
-      ctrl_qq <= ctrl_q;
+      ctrl_qq <= ctrl_q;    // one-cycle delayed copy
     end
   end
 
-  wire en = DEFAULT_EN ? 1'b1 : ctrl_q[0];
-  wire load = ctrl_q[1] & ~ctrl_qq[1];        // rising-edge detection
-  wire oe = DEFAULT_DRIVE ? 1'b1 : ctrl_q[2];
+  wire en_lvl = ctrl_q[0];
+  wire load_lvl = ctrl_q[1];
+  wire oe_lvl = ctrl_q[2];
 
-  // detect one cycle pulse of load
-  // logic load_q;
-  wire load_pulse = load & ~ctrl_qq[1];
-
-  // always_ff @(posedge clk or negedge rst_n) begin
-  //   if (!rst_n) load_q <= 1'b0;
-  //   else load_q <= load;
-  // end
+  wire en = DEFAULT_EN ? 1'b1 : en_lvl;
+  wire load_pulse = ctrl_q[1] & ~ctrl_qq[1];        // rising-edge detection
+  wire oe = DEFAULT_DRIVE ? 1'b1 : oe_lvl;
 
   // 3 state FSM sequence, 0=DRIVE, 1=RELEASE, 2=CAPTURE, then back to 0
   logic [1:0] seq;  // 0,1,2
@@ -50,7 +45,7 @@ module tt_um_example #(
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) seq <= 2'd0;
     else if (load_pulse) seq <= 2'd1;
-    else if (seq == 1) seq <= 2'd1;
+    else if (seq == 1) seq <= 2'd2;
     else if (seq == 2) seq <= 2'd0;
   end
 
