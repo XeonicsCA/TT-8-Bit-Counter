@@ -8,15 +8,15 @@ from cocotb.triggers import ClockCycles
 CLK_US = 10  # 100 kHz like the template
 
 @cocotb.test()
-async def count_to_50(dut):
-    dut._log.info("Start")
+async def count_to_20(dut):
+    dut._log.info("Starting count_to_20")
 
     # clock + reset
-    cocotb.start_soon(Clock(dut.clk, CLK_US, units="us").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_US, unit="us").start())
     dut.rst_n.value = 0
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 2)   # hold reset
+    await ClockCycles(dut.clk, 5)   # hold reset
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
@@ -30,52 +30,54 @@ async def count_to_50(dut):
     ui |= (1 << DRIVE_BIT)   # drive_en = 1 (optional)
     dut.ui_in.value = ui
 
-    # wait 50 clocks; expect uo_out == 50
-    await ClockCycles(dut.clk, 50)
-    assert int(dut.uo_out.value) == 50, f"expected 50, got {int(dut.uo_out.value)}"
+    # wait 20 clocks; expect uo_out == 20
+    await ClockCycles(dut.clk, 20)
+    assert int(dut.uo_out.value) == 20, f"expected 20, got {int(dut.uo_out.value)}"
 
 @cocotb.test()
-async def load_turnaround_report(dut):
-    cocotb.start_soon(Clock(dut.clk, CLK_US, units="us").start())
+async def load_turnaround(dut):
+    dut._log.info("Starting load_turnaround")
+
+    cocotb.start_soon(Clock(dut.clk, CLK_US, unit="us").start())
     dut.rst_n.value = 0
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 2)
+    await ClockCycles(dut.clk, 2) # hold reset
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
+    # enable counting and bus driving
     EN_BIT, LOAD_REQBIT, DRIVE_BIT = 0, 1, 2
-    ui = (1 << EN_BIT) | (1 << DRIVE_BIT)   # en=1, drive_en=1
+    ui = 0
+    ui = (1 << EN_BIT) | (1 << DRIVE_BIT)
     dut.ui_in.value = ui
+    await ClockCycles(dut.clk, 2) # wait 2 cycles before requesting load
+
+    # put load vlaue on input lines
+    load_val = 0xFA
+    dut.uio_in.value = load_val
 
     # request a load (one-cycle pulse)
-    dut.ui_in.value = ui | (1 << LOAD_REQBIT)
-    await ClockCycles(dut.clk, 1)
+    ui |= (1 << LOAD_REQBIT)
     dut.ui_in.value = ui
-
-    # RELEASE cycle (expected Hi-Z); present external data
     await ClockCycles(dut.clk, 1)
-    dut._log.info(f"[load] RELEASE: time={cocotb.utils.get_sim_time('ns')}ns "
-                  f"uio_oe={int(dut.uio_oe.value):#04x} uo_out={int(dut.uo_out.value)}")
-    load_val = 0xA5
-    dut.uio_in.value = load_val
-    dut._log.info(f"[load]  external drives uio_in={load_val:#04x}")
-
-    # CAPTURE cycle (DUT samples uio_in)
+    ui &= ~(1 << LOAD_REQBIT)
+    dut.ui_in.value = ui
     await ClockCycles(dut.clk, 1)
-    dut._log.info(f"[load] CAPTURE: time={cocotb.utils.get_sim_time('ns')}ns "
-                  f"uio_oe={int(dut.uio_oe.value):#04x} uo_out={int(dut.uo_out.value)}")
 
-    # Back to DRIVE
+    # RELEASE cycle: outputs should be Hi-Z; drive external data now
     await ClockCycles(dut.clk, 1)
-    dut._log.info(f"[load] DRIVE again: uio_oe={int(dut.uio_oe.value):#04x} uo_out={int(dut.uo_out.value)}")
+    assert int(dut.uio_oe.value) == 0, "uio_oe should be 0 during RELEASE"
 
-    # Let it run a few more cycles and log
-    for i in range(3):
-        await ClockCycles(dut.clk, 1)
-        dut._log.info(f"[load] post-capture cycle {i+1}: "
-                      f"uio_oe={int(dut.uio_oe.value):#04x} uo_out={int(dut.uo_out.value)}")
+    # CAPTURE: value is latched into count after this cycle?
+    await ClockCycles(dut.clk, 1)
+    assert int(dut.uio_oe.value) == 0, "uio_oe should be 0 during CAPTURE"
 
-    # keep sim running for VCD
-    await ClockCycles(dut.clk, 20)
-    dut._log.info("End: load_turnaround_report")
+    # Back to DRIVE, value is now latched into count and increment resumes
+    await ClockCycles(dut.clk, 1)
+    assert int(dut.uio_oe.value) == 0xFF, "uio_oe should re-enable after CAPTURE"
+    assert int(dut.uo_out.value) == load_val, f"capture failed: got {int(dut.uo_out.value)}"
+    
+    # count for 10 cycles and check value, testing for counter wrap around
+    await ClockCycles(dut.clk, 10)
+    assert int(dut.uo_out.value) == ((load_val + 10) & 0xFF)
